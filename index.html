@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Canteen - Menu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">S</span>
+        <span>School Canteen</span>
+      </a>
+      <a class="cart-link" href="cart.html">
+        Cart
+        <span id="cart-count" class="cart-badge is-empty">0</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <h1 class="page-title">Today's Menu</h1>
+      <p class="page-subtitle">Pick your favorites and add them to your cart.</p>
+      <div id="menu"></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    Greenfield High School Canteen &middot; Mon - Fri, 7:30 AM - 2:30 PM
+  </footer>
+
+  <script src="data/products.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/menu.js"></script>
+</body>
+</html>
