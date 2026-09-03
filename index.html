@@ -21,9 +21,20 @@
   </header>
 
   <main>
+    <section class="hero">
+      <span class="hero-emoji">&#127860;</span>
+      <h1>School Canteen</h1>
+      <p>Pick your favorites and add them to your cart.</p>
+    </section>
+
     <div class="container">
-      <h1 class="page-title">Today's Menu</h1>
-      <p class="page-subtitle">Pick your favorites and add them to your cart.</p>
+      <div class="category-tabs" id="category-tabs">
+        <button class="tab-btn active" data-cat="all">All</button>
+        <button class="tab-btn" data-cat="Meals">&#127858; Meals</button>
+        <button class="tab-btn" data-cat="Snacks">&#127871; Snacks</button>
+        <button class="tab-btn" data-cat="Drinks">&#129380; Drinks</button>
+        <button class="tab-btn" data-cat="Desserts">&#127856; Desserts</button>
+      </div>
       <div id="menu"></div>
     </div>
   </main>
