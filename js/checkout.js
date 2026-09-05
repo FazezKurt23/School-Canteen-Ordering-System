@@ -47,7 +47,18 @@ function createLineRow(line) {
   plus.textContent = '+';
 
   minus.addEventListener('click', () => updateQty(line.id, line.qty - 1));
-  plus.addEventListener('click', () => updateQty(line.id, line.qty + 1));
+  plus.addEventListener('click', () => {
+    const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
+    if (line.qty >= maxQ) {
+      alert('Max ' + maxQ + ' per item only.');
+      return;
+    }
+    updateQty(line.id, line.qty + 1);
+  });
+  if (line.qty >= (typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20)) {
+    plus.disabled = true;
+    plus.classList.add('is-disabled');
+  }
 
   stepper.appendChild(minus);
   stepper.appendChild(qtySpan);
@@ -135,6 +146,7 @@ function validateForm(form) {
 
   const name = $('#student-name');
   const id = $('#student-id');
+  const slot = $('#pickup-slot');
   const type = $('input[name="orderType"]:checked');
 
   const nameValue = name.value.trim();
@@ -175,14 +187,28 @@ function validateForm(form) {
     typeWrap.classList.remove('has-error');
   }
 
+  if (!slot.value) {
+    setFieldError(slot, 'Please select a pickup time.');
+    valid = false;
+  } else {
+    setFieldError(slot, '');
+  }
+
   return valid;
 }
 
 function formatOrderDate(iso) {
-  const date = new Date(iso);
-  const pad = (n) => String(n).padStart(2, '0');
-  return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
-    ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+  try {
+    return new Date(iso).toLocaleString('en-PH', {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+  } catch (err) {
+    const date = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) +
+      ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+  }
 }
 
 function showReceipt(order) {
@@ -192,8 +218,11 @@ function showReceipt(order) {
 
   $('#receipt-number').textContent = order.orderNumber;
   $('#receipt-date').textContent = formatOrderDate(order.createdAt);
-  $('#receipt-student').textContent = order.studentName + ' (ID: ' + order.studentId + ')';
+  const gradeSuffix = order.gradeSection ? ' · ' + order.gradeSection : '';
+  $('#receipt-student').textContent = order.studentName + ' (ID: ' + order.studentId + ')' + gradeSuffix;
   $('#receipt-type').textContent = order.orderType;
+  $('#receipt-pickup').textContent = order.pickupSlot || '—';
+  $('#receipt-notes').textContent = order.notes || '—';
 
   const tbody = $('#receipt-items');
   tbody.innerHTML = '';
@@ -254,20 +283,45 @@ function renderHistory() {
     summary.className = 'history-summary';
     summary.textContent =
       order.orderType +
+      (order.pickupSlot ? ' · ' + order.pickupSlot : '') +
       ' - ' +
       order.items.map((item) => item.name + ' x' + item.qty).join(', ') +
       ' - ' +
       formatMoney(order.total);
 
+    const btnRow = document.createElement('div');
+    btnRow.className = 'history-btn-row';
     const viewBtn = document.createElement('button');
     viewBtn.type = 'button';
     viewBtn.className = 'btn btn-ghost btn-sm';
     viewBtn.textContent = 'View Receipt';
     viewBtn.addEventListener('click', () => showReceipt(order));
 
+    const reorderBtn = document.createElement('button');
+    reorderBtn.type = 'button';
+    reorderBtn.className = 'btn btn-primary btn-sm';
+    reorderBtn.textContent = 'Re-order';
+    reorderBtn.addEventListener('click', () => {
+      const cart = loadCart();
+      order.items.forEach((item) => {
+        const existing = cart.find((e) => e.id === item.id);
+        const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
+        if (existing) {
+          existing.qty = Math.min(maxQ, existing.qty + item.qty);
+        } else {
+          cart.push({ id: item.id, qty: Math.min(maxQ, item.qty) });
+        }
+      });
+      saveCart(cart);
+      window.dispatchEvent(new CustomEvent('cart:updated'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     card.appendChild(head);
     card.appendChild(summary);
-    card.appendChild(viewBtn);
+    btnRow.appendChild(viewBtn);
+    btnRow.appendChild(reorderBtn);
+    card.appendChild(btnRow);
     container.appendChild(card);
   });
 }
@@ -296,7 +350,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const order = createOrder({
       studentName: $('#student-name').value,
       studentId: $('#student-id').value,
-      orderType: orderType
+      orderType: orderType,
+      pickupSlot: $('#pickup-slot').value,
+      gradeSection: $('#grade-section').value,
+      notes: $('#order-notes').value
     });
 
     if (!order) {

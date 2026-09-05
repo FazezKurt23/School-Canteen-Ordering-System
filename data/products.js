@@ -5,7 +5,8 @@ const PRODUCTS = [
     category: 'Meals',
     price: 99.0,
     description: 'Steamed chicken with fragrant rice and chili sauce.',
-    image: 'images/chicken-rice.jpg'
+    image: 'images/chicken-rice.jpg',
+    isBestSeller: true
   },
   {
     id: 'meal-nasi-lemak',
@@ -37,7 +38,8 @@ const PRODUCTS = [
     category: 'Snacks',
     price: 35.0,
     description: 'Crispy golden fries with a sprinkle of salt.',
-    image: 'images/french-fries.webp'
+    image: 'images/french-fries.webp',
+    isBestSeller: true
   },
   {
     id: 'snack-nuggets',
@@ -69,7 +71,8 @@ const PRODUCTS = [
     category: 'Drinks',
     price: 18.0,
     description: 'Chilled orange juice in a 250ml cup.',
-    image: 'images/orange-juice.png'
+    image: 'images/orange-juice.png',
+    isBestSeller: true
   },
   {
     id: 'drink-iced-tea',

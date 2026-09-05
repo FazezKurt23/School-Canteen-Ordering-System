@@ -1,6 +1,13 @@
 const CART_KEY = 'canteen_cart';
 const ORDERS_KEY = 'canteen_orders';
 const TAX_RATE = 0.06;
+const MAX_QTY = 20;
+
+function clampQty(qty) {
+  qty = Number(qty);
+  if (!Number.isFinite(qty)) return 1;
+  return Math.max(1, Math.min(MAX_QTY, Math.floor(qty)));
+}
 
 function loadCart() {
   try {
@@ -44,15 +51,22 @@ function getCartCount() {
 }
 
 function addItem(id, qty = 1) {
+  qty = clampQty(qty);
+  const product = PRODUCTS.find((p) => p.id === id);
+  if (!product) return { added: 0, capped: false };
   const cart = loadCart();
   const existing = cart.find((entry) => entry.id === id);
+  let capped = false;
   if (existing) {
-    existing.qty = Number(existing.qty) + qty;
+    const next = Number(existing.qty) + qty;
+    if (next > MAX_QTY) capped = true;
+    existing.qty = Math.min(MAX_QTY, next);
   } else {
     cart.push({ id, qty });
   }
   saveCart(cart);
   window.dispatchEvent(new CustomEvent('cart:updated'));
+  return { added: qty, capped };
 }
 
 function updateQty(id, qty) {
@@ -62,7 +76,7 @@ function updateQty(id, qty) {
     cart = cart.filter((entry) => entry.id !== id);
   } else {
     const existing = cart.find((entry) => entry.id === id);
-    if (existing) existing.qty = qty;
+    if (existing) existing.qty = Math.min(MAX_QTY, Math.floor(qty));
   }
   saveCart(cart);
   window.dispatchEvent(new CustomEvent('cart:updated'));
@@ -120,6 +134,9 @@ function createOrder(payload) {
     studentName: payload.studentName.trim(),
     studentId: payload.studentId.trim(),
     orderType: payload.orderType,
+    pickupSlot: (payload.pickupSlot || '').trim(),
+    gradeSection: (payload.gradeSection || '').trim(),
+    notes: (payload.notes || '').trim(),
     items: lines.map((line) => ({
       id: line.id,
       name: line.name,

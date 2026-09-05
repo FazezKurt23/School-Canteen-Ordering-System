@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CCTC School Canteen online ordering — browse meals, snacks, drinks and desserts, add to cart and checkout for pickup.">
+  <meta name="theme-color" content="#ff6b35">
+  <meta property="og:title" content="CCTC School Canteen">
+  <meta property="og:description" content="Order your canteen favorites online and pick up at the counter.">
+  <meta property="og:type" content="website">
   <title>School Canteen - Menu</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ff6b35'/%3E%3Ctext x='32' y='44' font-family='Arial' font-size='36' font-weight='900' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,16 +34,37 @@
     </section>
 
     <div class="container">
-      <div class="category-tabs" id="category-tabs">
-        <button class="tab-btn active" data-cat="all">All</button>
-        <button class="tab-btn" data-cat="Meals">&#127858; Meals</button>
-        <button class="tab-btn" data-cat="Snacks">&#127871; Snacks</button>
-        <button class="tab-btn" data-cat="Drinks">&#129380; Drinks</button>
-        <button class="tab-btn" data-cat="Desserts">&#127856; Desserts</button>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon" aria-hidden="true">&#128269;</span>
+          <input type="search" id="menu-search" placeholder="Search menu... e.g. fries" autocomplete="off" aria-label="Search menu">
+          <button id="search-clear" type="button" class="search-clear hidden" aria-label="Clear search">&times;</button>
+        </div>
+        <select id="menu-sort" class="sort-select" aria-label="Sort menu">
+          <option value="default">Sort: Featured</option>
+          <option value="name-asc">Name A–Z</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
+        </select>
       </div>
+      <div class="category-tabs" id="category-tabs" role="tablist" aria-label="Menu categories">
+        <button class="tab-btn active" data-cat="all" role="tab" aria-selected="true">All</button>
+        <button class="tab-btn" data-cat="Meals" role="tab" aria-selected="false">&#127858; Meals</button>
+        <button class="tab-btn" data-cat="Snacks" role="tab" aria-selected="false">&#127871; Snacks</button>
+        <button class="tab-btn" data-cat="Drinks" role="tab" aria-selected="false">&#129380; Drinks</button>
+        <button class="tab-btn" data-cat="Desserts" role="tab" aria-selected="false">&#127856; Desserts</button>
+      </div>
+      <p id="menu-result-count" class="result-count" aria-live="polite"></p>
       <div id="menu"></div>
     </div>
   </main>
+
+  <a id="sticky-cart" class="sticky-cart hidden" href="cart.html" aria-live="polite">
+    <span id="sticky-cart-text">View Cart</span>
+    <span id="sticky-cart-total" class="sticky-cart-total"></span>
+  </a>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
   <footer class="site-footer">
     CCTC School Canteen &middot; Mon - Fri, 7:30 AM - 4:00 PM
