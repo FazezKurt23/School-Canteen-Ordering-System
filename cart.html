@@ -50,7 +50,7 @@
               </div>
               <div class="field">
                 <label for="grade-section">Grade &amp; Section <span class="optional">(optional)</span></label>
-                <input type="text" id="grade-section" name="gradeSection" placeholder="e.g. Grade 10 & Section " autocomplete="off">
+                <input type="text" id="grade-section" name="gradeSection" placeholder="e.g. Grade 10 - Ruby" autocomplete="off">
               </div>
               <div class="field">
                 <label for="pickup-slot">Pickup Time</label>
@@ -81,7 +81,17 @@
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary checkout-submit">Place Order</button>
+            <div class="field" id="payment-field" style="margin-top:16px;">
+              <label>Payment</label>
+              <div class="order-type-group">
+                <label class="order-type-option">
+                  <input type="radio" name="paymentMethod" value="Pay at Counter (Cash)" checked>
+                  <span>💵 Pay at Counter (Cash)</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary checkout-submit">Place Order • Pay at Counter</button>
           </form>
         </div>
       </section>
@@ -94,19 +104,26 @@
         <a class="btn btn-primary" href="index.html">Browse the Menu</a>
       </section>
 
-      <!-- Printable receipt -->
+      <!-- Printable receipt / claim stub -->
       <section id="receipt-view" class="hidden">
         <div class="receipt" id="print-area">
           <div class="receipt-header">
             <span class="receipt-emoji">&#127873;</span>
             <h2> CCTC School Canteen</h2>
-            <p>Official Order Receipt</p>
+            <p>Order Claim Stub</p>
+          </div>
+          <div class="pay-banner">💵 PAY AT COUNTER</div>
+          <div class="queue-block">
+            <span class="queue-label">QUEUE NUMBER</span>
+            <span class="queue-number" id="receipt-queue">#001</span>
+            <span class="queue-status" id="receipt-status">To Pay at Counter</span>
           </div>
           <div class="receipt-meta">
             <span>Order No.</span><span id="receipt-number"></span>
             <span>Date</span><span id="receipt-date"></span>
             <span>Student</span><span id="receipt-student"></span>
             <span>Order Type</span><span id="receipt-type"></span>
+            <span>Payment</span><span id="receipt-payment"></span>
             <span>Pickup</span><span id="receipt-pickup"></span>
             <span>Notes</span><span id="receipt-notes"></span>
           </div>
@@ -124,12 +141,17 @@
           <div class="receipt-totals">
             <span>Subtotal</span><span id="receipt-subtotal"></span>
             <span>Service Tax (6%)</span><span id="receipt-tax"></span>
-            <span class="total">Total</span><span class="total" id="receipt-total"></span>
+            <span class="total">Amount to Pay</span><span class="total" id="receipt-total"></span>
           </div>
-          <p class="receipt-footer">Thank you for ordering! Please show this receipt at the canteen counter for pickup.</p>
+          <ol class="claim-steps">
+            <li><strong>1.</strong> Go to the canteen counter</li>
+            <li><strong>2.</strong> Show this stub and pay</li>
+            <li><strong>3.</strong> Wait for your queue number to be called, then claim</li>
+          </ol>
+          <p class="receipt-footer">Thank you for ordering! Please show this stub at the canteen counter to pay &amp; claim.</p>
         </div>
         <div class="receipt-actions">
-          <button id="print-receipt" type="button" class="btn btn-primary">Print Receipt</button>
+          <button id="print-receipt" type="button" class="btn btn-primary">Print Claim Stub</button>
           <button id="new-order" type="button" class="btn btn-ghost">Place Another Order</button>
         </div>
       </section>
@@ -143,8 +165,11 @@
     </div>
   </main>
 
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
   <footer class="site-footer">
-    CCTC School Canteen &middot; Mon - Fri, 7:30 AM - 4:00 PM
+    CCTC School Canteen &middot; Mon - Fri, 7:30 AM - 4:00 PM<br>
+    <span style="font-size:12px;">Staff: <a href="admin.html">Cashier</a> &middot; <a href="board.html">Now Serving Board</a></span>
   </footer>
 
   <script src="data/products.js"></script>

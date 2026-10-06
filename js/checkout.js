@@ -1,14 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-function updateBadge() {
-  const badge = $('#cart-count');
-  if (!badge) return;
-  const count = getCartCount();
-  badge.textContent = count;
-  badge.classList.toggle('is-empty', count === 0);
-}
-
 function createLineRow(line) {
   const row = document.createElement('div');
   row.className = 'cart-line';
@@ -20,7 +12,8 @@ function createLineRow(line) {
   name.textContent = line.name;
   const meta = document.createElement('span');
   meta.className = 'cart-line-meta';
-  meta.textContent = formatMoney(line.unitPrice) + ' each';
+  meta.textContent = formatMoney(line.unitPrice) + ' each'
+    + (Number.isFinite(line.stock) ? ' · ' + line.stock + ' in stock' : '');
   info.appendChild(name);
   info.appendChild(meta);
 
@@ -49,13 +42,16 @@ function createLineRow(line) {
   minus.addEventListener('click', () => updateQty(line.id, line.qty - 1));
   plus.addEventListener('click', () => {
     const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
-    if (line.qty >= maxQ) {
-      alert('Max ' + maxQ + ' per item only.');
+    const cap = Number.isFinite(line.stock) ? Math.min(maxQ, line.stock) : maxQ;
+    if (line.qty >= cap) {
+      showToast(line.stock <= 0 ? line.name + ' is sold out.' : 'Only ' + line.stock + ' available for ' + line.name + '.', 'warn');
       return;
     }
     updateQty(line.id, line.qty + 1);
   });
-  if (line.qty >= (typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20)) {
+  const maxQ2 = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
+  const cap2 = Number.isFinite(line.stock) ? Math.min(maxQ2, line.stock) : maxQ2;
+  if (line.qty >= cap2) {
     plus.disabled = true;
     plus.classList.add('is-disabled');
   }
@@ -105,7 +101,24 @@ function renderTotals(lines) {
 }
 
 function renderCart() {
-  const lines = getCartLines();
+  let lines = getCartLines();
+  // Auto-prune items that became sold out / over stock (e.g. ordered in another tab).
+  const cart = loadCart();
+  let pruned = false;
+  lines.forEach((line) => {
+    if (line.stock <= 0) {
+      const i = cart.findIndex((e) => e.id === line.id);
+      if (i !== -1) { cart.splice(i, 1); pruned = true; }
+    } else if (line.qty > line.stock) {
+      const entry = cart.find((e) => e.id === line.id);
+      if (entry) { entry.qty = line.stock; pruned = true; }
+    }
+  });
+  if (pruned) {
+    saveCart(cart);
+    lines = getCartLines();
+    showToast('Some items were updated — stock changed.', 'warn');
+  }
   const cartView = $('#cart-view');
   const emptyView = $('#empty-view');
 
@@ -221,6 +234,15 @@ function showReceipt(order) {
   const gradeSuffix = order.gradeSection ? ' · ' + order.gradeSection : '';
   $('#receipt-student').textContent = order.studentName + ' (ID: ' + order.studentId + ')' + gradeSuffix;
   $('#receipt-type').textContent = order.orderType;
+  const payEl = $('#receipt-payment');
+  if (payEl) payEl.textContent = order.paymentMethod || 'Pay at Counter (Cash)';
+  const queueEl = $('#receipt-queue');
+  if (queueEl) {
+    const q = order.queueNumber || '?';
+    queueEl.textContent = '#' + String(q).padStart(3, '0');
+  }
+  const statusEl = $('#receipt-status');
+  if (statusEl) statusEl.textContent = order.status || 'To Pay at Counter';
   $('#receipt-pickup').textContent = order.pickupSlot || '—';
   $('#receipt-notes').textContent = order.notes || '—';
 
@@ -250,6 +272,22 @@ function showReceipt(order) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function customerStatusClass(status) {
+  if (status === 'Paid') return 'paid';
+  if (status === 'Ready') return 'ready';
+  if (status === 'Claimed') return 'claimed';
+  if (status === 'Cancelled') return 'cancelled';
+  return 'to-pay';
+}
+
+function statusIcon(status) {
+  if (status === 'Paid') return '✅';
+  if (status === 'Ready') return '🔔';
+  if (status === 'Claimed') return '✔️';
+  if (status === 'Cancelled') return '❌';
+  return '💵';
+}
+
 function renderHistory() {
   const container = $('#order-history');
   if (!container) return;
@@ -272,12 +310,24 @@ function renderHistory() {
     head.className = 'history-head';
     const number = document.createElement('span');
     number.className = 'history-number';
-    number.textContent = order.orderNumber;
+    const qLabel = order.queueNumber ? '#' + String(order.queueNumber).padStart(3, '0') + ' · ' : '';
+    number.textContent = qLabel + order.orderNumber;
     const date = document.createElement('span');
     date.className = 'history-date';
     date.textContent = formatOrderDate(order.createdAt);
     head.appendChild(number);
     head.appendChild(date);
+
+    const statusRow = document.createElement('div');
+    statusRow.className = 'history-status-row';
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'status-badge ' + customerStatusClass(order.status);
+    statusBadge.textContent = statusIcon(order.status) + ' ' + (order.status || 'To Pay at Counter');
+    const payBadge = document.createElement('span');
+    payBadge.className = 'pay-badge';
+    payBadge.textContent = order.paymentMethod || 'Pay at Counter (Cash)';
+    statusRow.appendChild(statusBadge);
+    statusRow.appendChild(payBadge);
 
     const summary = document.createElement('p');
     summary.className = 'history-summary';
@@ -294,7 +344,7 @@ function renderHistory() {
     const viewBtn = document.createElement('button');
     viewBtn.type = 'button';
     viewBtn.className = 'btn btn-ghost btn-sm';
-    viewBtn.textContent = 'View Receipt';
+    viewBtn.textContent = 'View Claim Stub';
     viewBtn.addEventListener('click', () => showReceipt(order));
 
     const reorderBtn = document.createElement('button');
@@ -303,24 +353,95 @@ function renderHistory() {
     reorderBtn.textContent = 'Re-order';
     reorderBtn.addEventListener('click', () => {
       const cart = loadCart();
+      let addedCount = 0;
+      let skippedCount = 0;
+      const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
       order.items.forEach((item) => {
-        const existing = cart.find((e) => e.id === item.id);
-        const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
-        if (existing) {
-          existing.qty = Math.min(maxQ, existing.qty + item.qty);
-        } else {
-          cart.push({ id: item.id, qty: Math.min(maxQ, item.qty) });
+        const product = typeof PRODUCTS !== 'undefined'
+          ? PRODUCTS.find((p) => p.id === item.id)
+          : null;
+        if (!product) {
+          skippedCount += 1;
+          return;
         }
+        const stock = typeof getProductStock === 'function' ? getProductStock(product) : (product.stock ?? Infinity);
+        if (stock <= 0) {
+          skippedCount += 1;
+          return;
+        }
+        const existing = cart.find((e) => e.id === item.id);
+        const already = existing ? Number(existing.qty) : 0;
+        const canAdd = Math.min(item.qty, Math.max(0, Math.min(maxQ, stock) - already));
+        if (canAdd <= 0) {
+          skippedCount += 1;
+          return;
+        }
+        if (existing) {
+          existing.qty = already + canAdd;
+        } else {
+          cart.push({ id: item.id, qty: canAdd });
+        }
+        addedCount += 1;
       });
+      if (!addedCount) {
+        showToast('Those items are no longer available.', 'warn');
+        return;
+      }
       saveCart(cart);
       window.dispatchEvent(new CustomEvent('cart:updated'));
+      showToast(
+        skippedCount
+          ? 'Re-added ' + addedCount + ' item(s), ' + skippedCount + ' unavailable skipped.'
+          : 'Items re-added to cart.',
+        skippedCount ? 'warn' : undefined,
+        { label: 'View Cart', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }), keepLonger: true }
+      );
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     card.appendChild(head);
+    card.appendChild(statusRow);
     card.appendChild(summary);
     btnRow.appendChild(viewBtn);
     btnRow.appendChild(reorderBtn);
+    if ((order.status || 'To Pay at Counter') === 'To Pay at Counter') {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn btn-ghost btn-sm';
+      cancelBtn.textContent = 'Cancel Order';
+      cancelBtn.addEventListener('click', () => {
+        cancelOrder(order.orderNumber);
+        showToast('Order cancelled — stock restored.', 'warn');
+        renderCart();
+        renderHistory();
+        updateBadge();
+      });
+      btnRow.appendChild(cancelBtn);
+    }
+    if (['Claimed', 'Cancelled'].includes(order.status)) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn btn-ghost btn-sm';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.setAttribute('aria-label', 'Delete ' + order.orderNumber + ' from history');
+      deleteBtn.addEventListener('click', () => {
+        const removed = deleteOrder(order.orderNumber);
+        renderHistory();
+        if (removed) {
+          const orders = loadOrders();
+          showToast('Order deleted from history.', 'warn', {
+            label: 'Undo',
+            keepLonger: true,
+            onClick: () => {
+              orders.unshift(removed);
+              saveOrders(orders);
+              renderHistory();
+            }
+          });
+        }
+      });
+      btnRow.appendChild(deleteBtn);
+    }
     card.appendChild(btnRow);
     container.appendChild(card);
   });
@@ -334,50 +455,80 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCart();
     updateBadge();
   });
+  // Live-update history when cashier changes status in another tab.
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'canteen_orders') renderHistory();
+  });
 
   $('#clear-cart').addEventListener('click', () => {
-    if (confirm('Remove all items from your cart?')) {
-      localStorage.setItem(CART_KEY, JSON.stringify([]));
-      window.dispatchEvent(new CustomEvent('cart:updated'));
-    }
+    const previous = loadCart();
+    if (!previous.length) return;
+    saveCart([]);
+    window.dispatchEvent(new CustomEvent('cart:updated'));
+    showToast('Cart cleared.', 'warn', {
+      label: 'Undo',
+      keepLonger: true,
+      onClick: () => {
+        saveCart(previous);
+        window.dispatchEvent(new CustomEvent('cart:updated'));
+      }
+    });
   });
 
   $('#checkout-form').addEventListener('submit', (event) => {
     event.preventDefault();
+    const submitBtn = event.target.querySelector('[type="submit"]');
+    if (submitBtn && submitBtn.disabled) return;
     if (!validateForm(event.target)) return;
 
-    const orderType = $('input[name="orderType"]:checked').value;
-    const order = createOrder({
-      studentName: $('#student-name').value,
-      studentId: $('#student-id').value,
-      orderType: orderType,
-      pickupSlot: $('#pickup-slot').value,
-      gradeSection: $('#grade-section').value,
-      notes: $('#order-notes').value
-    });
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const orderType = $('input[name="orderType"]:checked').value;
+      const payInput = $('input[name="paymentMethod"]:checked');
+      const order = createOrder({
+        studentName: $('#student-name').value,
+        studentId: $('#student-id').value,
+        orderType: orderType,
+        paymentMethod: payInput ? payInput.value : 'Pay at Counter (Cash)',
+        pickupSlot: $('#pickup-slot').value,
+        gradeSection: $('#grade-section').value,
+        notes: $('#order-notes').value
+      });
 
-    if (!order) {
-      alert('Your cart is empty.');
-      return;
+      if (!order) {
+        showToast('Your cart is empty.', 'warn');
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+      if (order.error) {
+        if (order.error === 'out_of_stock') {
+          showToast(order.line.name + ' is sold out. Removed from cart.', 'warn');
+        } else {
+          showToast('Only ' + order.line.stock + ' left for ' + order.line.name + '.', 'warn');
+        }
+        renderCart();
+        updateBadge();
+        return;
+      }
+
+      event.target.reset();
+      $$('.has-error').forEach((el) => {
+        const error = el.querySelector('.field-error');
+        if (error) error.remove();
+        el.classList.remove('has-error');
+      });
+
+      showReceipt(order);
+      renderHistory();
+      updateBadge();
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
-
-    event.target.reset();
-    $$('.has-error').forEach((el) => {
-      const error = el.querySelector('.field-error');
-      if (error) error.remove();
-      el.classList.remove('has-error');
-    });
-
-    showReceipt(order);
-    renderHistory();
-    updateBadge();
   });
 
   $('#print-receipt').addEventListener('click', () => window.print());
 
   $('#new-order').addEventListener('click', () => {
-    $('#receipt-view').classList.add('hidden');
-    renderCart();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.location.href = 'index.html';
   });
 });

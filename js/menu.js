@@ -33,34 +33,19 @@ const CATEGORY_BADGE_CLASSES = {
 let activeCategory = 'all';
 let searchQuery = '';
 let sortMode = 'default';
+const qtyDrafts = {};
 
 function categoryLabel(category) {
   return (CATEGORY_EMOJIS[category] || '') + ' ' + category;
-}
-
-function showToast(message, type) {
-  const region = document.getElementById('toast-region');
-  if (!region) return;
-  const toast = document.createElement('div');
-  toast.className = 'toast' + (type === 'warn' ? ' toast-warn' : '');
-  toast.textContent = message;
-  const action = document.createElement('a');
-  action.href = 'cart.html';
-  action.className = 'toast-action';
-  action.textContent = 'View Cart';
-  toast.appendChild(action);
-  region.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, 2600);
 }
 
 function createProductCard(product) {
   const card = document.createElement('article');
   card.className = 'product-card';
   card.dataset.productId = product.id;
+  const stock = typeof getProductStock === 'function' ? getProductStock(product) : (product.stock ?? Infinity);
+  const soldOut = stock <= 0;
+  if (soldOut) card.classList.add('is-soldout');
 
   const badge = document.createElement('span');
   badge.className = 'product-badge ' + (CATEGORY_BADGE_CLASSES[product.category] || '');
@@ -69,11 +54,18 @@ function createProductCard(product) {
   const tile = document.createElement('div');
   tile.className = 'product-tile';
 
-  if (product.isBestSeller) {
+  if (product.isBestSeller && !soldOut) {
     const star = document.createElement('span');
     star.className = 'bestseller-badge';
     star.textContent = '★ Best Seller';
     tile.appendChild(star);
+  }
+
+  if (soldOut) {
+    const out = document.createElement('span');
+    out.className = 'soldout-badge';
+    out.textContent = 'Sold Out';
+    tile.appendChild(out);
   }
 
   if (product.image) {
@@ -111,6 +103,12 @@ function createProductCard(product) {
   price.className = 'product-price';
   price.textContent = formatMoney(product.price);
 
+  const stockNote = document.createElement('p');
+  stockNote.className = 'product-stock' + (soldOut ? ' out' : (stock <= LOW_STOCK_THRESHOLD ? ' low' : ''));
+  stockNote.textContent = soldOut
+    ? 'Sold out'
+    : (Number.isFinite(stock) ? (stock <= LOW_STOCK_THRESHOLD ? 'Only ' + stock + ' left!' : stock + ' available') : '');
+
   const actions = document.createElement('div');
   actions.className = 'product-actions';
 
@@ -118,33 +116,47 @@ function createProductCard(product) {
   qtyInput.type = 'number';
   qtyInput.className = 'qty-input';
   qtyInput.min = '1';
-  qtyInput.max = String(typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20);
-  qtyInput.value = '1';
+  qtyInput.max = String(Math.min(typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20, Number.isFinite(stock) ? stock : 20));
+  qtyInput.value = String(qtyDrafts[product.id] || '1');
   qtyInput.setAttribute('aria-label', 'Quantity for ' + product.name);
+  qtyInput.disabled = soldOut;
+  qtyInput.addEventListener('input', () => {
+    const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
+    const parsed = parseInt(qtyInput.value, 10);
+    qtyDrafts[product.id] = Number.isFinite(parsed) ? Math.max(1, Math.min(maxQ, parsed)) : 1;
+  });
 
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
   addBtn.className = 'btn btn-primary add-btn';
-  addBtn.textContent = 'Add to Cart';
+  addBtn.textContent = soldOut ? 'Sold Out' : 'Add to Cart';
+  addBtn.disabled = soldOut;
 
   addBtn.addEventListener('click', () => {
-    const maxQ = typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20;
+    const stockNow = typeof getProductStock === 'function' ? getProductStock(product) : (product.stock ?? Infinity);
+    if (stockNow <= 0) {
+      showToast(product.name + ' is sold out.', 'warn');
+      renderMenu();
+      return;
+    }
+    const maxQ = Math.min(typeof MAX_QTY !== 'undefined' ? MAX_QTY : 20, stockNow);
     const qty = Math.max(1, Math.min(maxQ, parseInt(qtyInput.value, 10) || 1));
     qtyInput.value = String(qty);
     const result = addItem(product.id, qty);
-    if (result && result.capped) {
-      showToast(product.name + ' capped at ' + maxQ + ' per order', 'warn');
-    } else {
-      showToast('Added ' + product.name + ' x' + qty);
+    if (result && result.outOfStock) {
+      showToast(product.name + ' is sold out.', 'warn');
+      renderMenu();
+      return;
     }
+    if (result && result.capped) {
+      showToast(product.name + ' — only ' + result.available + ' available', 'warn');
+    } else {
+      showToast('Added ' + product.name + ' x' + (result ? result.added : qty));
+    }
+    renderMenu();
     addBtn.textContent = '\u2713 Added';
     addBtn.classList.add('added');
-    addBtn.disabled = true;
-    setTimeout(() => {
-      addBtn.textContent = 'Add to Cart';
-      addBtn.classList.remove('added');
-      addBtn.disabled = false;
-    }, 1000);
+    setTimeout(() => { renderMenu(); }, 600);
   });
 
   actions.appendChild(qtyInput);
@@ -153,6 +165,7 @@ function createProductCard(product) {
   body.appendChild(name);
   body.appendChild(desc);
   body.appendChild(price);
+  if (stockNote.textContent) body.appendChild(stockNote);
   body.appendChild(actions);
 
   card.appendChild(badge);
@@ -235,30 +248,6 @@ function renderMenu() {
   }
 }
 
-function updateBadge() {
-  const badge = document.getElementById('cart-count');
-  if (badge) {
-    const count = getCartCount();
-    badge.textContent = count;
-    badge.classList.toggle('is-empty', count === 0);
-  }
-  const sticky = document.getElementById('sticky-cart');
-  if (sticky) {
-    const lines = typeof getCartLines === 'function' ? getCartLines() : [];
-    const totals = typeof getTotals === 'function' ? getTotals(lines) : null;
-    const count = getCartCount();
-    if (!count) {
-      sticky.classList.add('hidden');
-    } else {
-      sticky.classList.remove('hidden');
-      const txt = document.getElementById('sticky-cart-text');
-      const tot = document.getElementById('sticky-cart-total');
-      if (txt) txt.textContent = 'View Cart (' + count + ')';
-      if (tot && totals) tot.textContent = formatMoney(totals.total);
-    }
-  }
-}
-
 function initCategoryTabs() {
   const tabs = document.getElementById('category-tabs');
   if (!tabs) return;
@@ -283,11 +272,15 @@ function initSearchSort() {
   const search = document.getElementById('menu-search');
   const clear = document.getElementById('search-clear');
   const sort = document.getElementById('menu-sort');
+  let debounceTimer = null;
   if (search) {
     search.addEventListener('input', () => {
-      searchQuery = search.value;
       if (clear) clear.classList.toggle('hidden', !search.value);
-      renderMenu();
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        searchQuery = search.value;
+        renderMenu();
+      }, 200);
     });
   }
   if (clear) {
@@ -313,4 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderMenu();
   updateBadge();
   window.addEventListener('cart:updated', updateBadge);
+  window.addEventListener('stock:updated', renderMenu);
+  // Refresh menu when admin changes stock in another tab.
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'canteen_stock') renderMenu();
+  });
 });

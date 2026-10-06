@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CCTC School Canteen cashier — manage today's order queue.">
+  <title>School Canteen - Cashier</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ff6b35'/%3E%3Ctext x='32' y='44' font-family='Arial' font-size='36' font-weight='900' fill='white' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">S</span>
+        <span>School Canteen · Cashier</span>
+      </a>
+      <nav class="staff-nav">
+        <a class="cart-link" href="index.html">Menu</a>
+        <a class="cart-link" href="board.html">Board</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <h1 class="page-title">Cashier Queue</h1>
+      <p class="page-subtitle">Today's orders — click a button to move an order to the next stage: To Pay → Paid → Ready → Claimed.</p>
+
+      <div class="admin-stats" id="admin-stats"></div>
+
+      <div class="admin-filters">
+        <div class="admin-filter-group" id="status-filters" role="tablist" aria-label="Filter by status">
+          <button class="tab-btn active" data-filter="active" role="tab" aria-selected="true">Active</button>
+          <button class="tab-btn" data-filter="today" role="tab" aria-selected="false">All today</button>
+          <button class="tab-btn" data-filter="To Pay at Counter" role="tab" aria-selected="false">To Pay</button>
+          <button class="tab-btn" data-filter="Paid" role="tab" aria-selected="false">Paid</button>
+          <button class="tab-btn" data-filter="Ready" role="tab" aria-selected="false">Ready</button>
+          <button class="tab-btn" data-filter="Claimed" role="tab" aria-selected="false">Claimed</button>
+          <button class="tab-btn" data-filter="Cancelled" role="tab" aria-selected="false">Cancelled</button>
+        </div>
+        <button id="admin-refresh" type="button" class="btn btn-ghost btn-sm">Refresh</button>
+      </div>
+
+      <p id="admin-count" class="result-count" aria-live="polite"></p>
+      <div id="admin-list" class="admin-list"></div>
+
+      <!-- Inventory / stock control -->
+      <section class="form-section" id="inventory-section">
+        <h2>Inventory — Stock Control</h2>
+        <p class="page-subtitle">Set stock per item. Set to <strong>0</strong> to mark as Sold Out — menu updates instantly.</p>
+        <div class="admin-filters">
+          <button id="inventory-reset" type="button" class="btn btn-ghost btn-sm">Reset to default stock</button>
+        </div>
+        <div id="inventory-list" class="inventory-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <footer class="site-footer">
+    CCTC School Canteen &middot; Cashier view &middot; <a href="board.html">Now Serving Board</a>
+  </footer>
+
+  <script src="data/products.js"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
